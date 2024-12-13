@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -12,17 +13,29 @@ namespace pr7_Тепляков
     {
         static void Main(string[] args)
         {
-            WebRequest request = WebRequest.Create("");
-            HttpWebResponse response = (HttpWebResponse)request.GetResponse();
-            Console.WriteLine(response.StatusDescription);
-            Stream dataStream = response.GetResponseStream();
-            StreamReader reader = new StreamReader(dataStream);
-            string data = reader.ReadToEnd();
-            Console.WriteLine(data);
-            reader.Close();
-            dataStream.Close();
-            response.Close();
+            SingIn("", "");
             Console.Read();
+        }
+
+        public static void SingIn(string Login, string Password)
+        {
+            string url = "";
+            Debug.WriteLine($"Выполняем запрос: {url}");
+            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
+            request.Method = "POST";
+            request.ContentType = "";
+            request.CookieContainer = new CookieContainer();
+            string postData = "";
+            byte[] Data = Encoding.ASCII.GetBytes(postData);
+            request.ContentLength = Data.Length;
+            using(var stream = request.GetRequestStream())
+            {
+                stream.Write(Data, 0, Data.Length);
+            }
+            HttpWebResponse response = (HttpWebResponse)request.GetResponse();
+            Debug.WriteLine($"Статус выполнения: {response.StatusCode}");
+            string responseFromServer = new StreamReader(response.GetResponseStream()).ReadToEnd();
+            Console.WriteLine(responseFromServer);
         }
     }
 }
