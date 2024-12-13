@@ -1,19 +1,17 @@
 ﻿using HtmlAgilityPack;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net;
-using System.Text;
+using System.Net.Http;
 using System.Threading.Tasks;
 
 namespace pr7_Тепляков
 {
-    internal class Program
+    public class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             try
             {
@@ -21,10 +19,9 @@ namespace pr7_Тепляков
                 {
                     Trace.Listeners.Add(new TextWriterTraceListener(file));
                     Trace.AutoFlush = true;
-                    SingIn("student", "Asdfg123");
-                    Cookie tokenCookie = new Cookie("token", "your_token_here") { Domain = "news.permaviat.ru" };
-                    GetToken(tokenCookie);
-                    string htmlCode = GetHtmlFromUrl("http://news.permaviat.ru/main");
+                    await SingIn("student", "Asdfg123");
+                    await AddRecord("Новая запись", "Описание для добавленной новой записи.", "Здесь должна быть картинка)");
+                    string htmlCode = await GetHtmlFromUrl("http://news.permaviat.ru/main");
                     ParsingHtml(htmlCode);
                 }
             }
@@ -36,38 +33,55 @@ namespace pr7_Тепляков
             Console.Read();
         }
 
-        public static void SingIn(string Login, string Password)
+        public static async Task SingIn(string Login, string Password)
         {
             string url = "http://news.permaviat.ru/ajax/login.php";
             Trace.WriteLine($"Выполняем запрос: {url}");
-            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
-            request.Method = "POST";
-            request.ContentType = "application/x-www-form-urlencoded";
-            request.CookieContainer = new CookieContainer();
-            string postData = $"login={Login}&password={Password}";
-            byte[] Data = Encoding.ASCII.GetBytes(postData);
-            request.ContentLength = Data.Length;
-            using (var stream = request.GetRequestStream())
+            using (HttpClient client = new HttpClient())
             {
-                stream.Write(Data, 0, Data.Length);
+                var formData = new Dictionary<string, string>
+                {
+                    { "login", Login },
+                    { "password", Password }
+                };
+                var content = new FormUrlEncodedContent(formData);
+                HttpResponseMessage response = await client.PostAsync(url, content);
+                Trace.WriteLine($"Статус выполнения: {response.StatusCode}");
+                string responseFromServer = await response.Content.ReadAsStringAsync();
+                Console.WriteLine(responseFromServer);
             }
-            HttpWebResponse response = (HttpWebResponse)request.GetResponse();
-            Trace.WriteLine($"Статус выполнения: {response.StatusCode}");
-            string responseFromServer = new StreamReader(response.GetResponseStream()).ReadToEnd();
-            Console.WriteLine(responseFromServer);
         }
 
-        public static void GetToken(Cookie Token)
+        public static async Task AddRecord(string title, string description, string imageUrl)
         {
-            string url = "http://news.permaviat.ru/main";
+            string url = "http://news.permaviat.ru/add";
             Trace.WriteLine($"Выполняем запрос: {url}");
-            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
-            request.CookieContainer = new CookieContainer();
-            request.CookieContainer.Add(Token);
-            HttpWebResponse response = (HttpWebResponse)request.GetResponse();
-            Trace.WriteLine($"Статус выполнения: {response.StatusCode}");
-            string responseFromServer = new StreamReader(response.GetResponseStream()).ReadToEnd();
-            Console.WriteLine(responseFromServer);
+            using (HttpClient client = new HttpClient())
+            {
+                var formData = new Dictionary<string, string>
+                {
+                    { "title", title },
+                    { "description", description },
+                    { "image", imageUrl }
+                };
+                var content = new FormUrlEncodedContent(formData);
+                HttpResponseMessage response = await client.PostAsync(url, content);
+                Trace.WriteLine($"Статус выполнения: {response.StatusCode}");
+                string responseFromServer = await response.Content.ReadAsStringAsync();
+                Console.WriteLine(responseFromServer);
+            }
+        }
+
+        public static async Task<string> GetHtmlFromUrl(string url)
+        {
+            Trace.WriteLine($"Выполняем запрос: {url}");
+            using (HttpClient client = new HttpClient())
+            {
+                HttpResponseMessage response = await client.GetAsync(url);
+                Trace.WriteLine($"Статус выполнения: {response.StatusCode}");
+                string htmlCode = await response.Content.ReadAsStringAsync();
+                return htmlCode;
+            }
         }
 
         public static void ParsingHtml(string htmlCode)
@@ -75,7 +89,7 @@ namespace pr7_Тепляков
             var html = new HtmlDocument();
             html.LoadHtml(htmlCode);
             var Document = html.DocumentNode;
-            IEnumerable<HtmlNode> Content = Document.Descendants(0).Where(n => n.HasClass(""));
+            var Content = Document.Descendants(0).Where(n => n.HasClass(""));
             foreach (HtmlNode content in Content)
             {
                 var src = content.ChildNodes[1].GetAttributeValue("src", "none");
@@ -83,14 +97,6 @@ namespace pr7_Тепляков
                 var description = content.ChildNodes[5].InnerText;
                 Console.WriteLine(name + "\n" + "Изображение: " + src + "\n" + "Описание: " + description);
             }
-        }
-
-        public static string GetHtmlFromUrl(string url)
-        {
-            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
-            HttpWebResponse response = (HttpWebResponse)request.GetResponse();
-            string htmlCode = new StreamReader(response.GetResponseStream()).ReadToEnd();
-            return htmlCode;
         }
     }
 }
